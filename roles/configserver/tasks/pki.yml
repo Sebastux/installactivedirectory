@@ -1,0 +1,82 @@
+---
+- name: Création des répertoires de la pki.
+  file:
+    path: "{{ item.repertoire }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+    state: "{{ item.status }}"
+  with_items:
+    - {repertoire: "{{ root_dir }}", mode: '0644', status: directory }
+    - {repertoire: "{{ rep_certs }}", mode: '0644', status: directory }
+    - {repertoire: "{{ chemin_divers }}", mode: '0644', status: directory }
+    - {repertoire: "{{ root_scripts }}", mode: '0644', status: directory }
+    - {repertoire: "{{ scripts_cron }}", mode: '0700', status: directory }
+    - {repertoire: "{{ scripts_openssl }}", mode: '0700', status: directory }
+    - {repertoire: "{{ root_pki }}", mode: '0644', status: directory }
+    - {repertoire: "{{ root_pki }}/certreqs", mode: '0644', status: directory }
+    - {repertoire: "{{ root_pki }}/certs", mode: '0644', status: directory }
+    - {repertoire: "{{ root_pki }}/crl", mode: '0644', status: directory }
+    - {repertoire: "{{ root_pki }}/newcerts", mode: '0644', status: directory }
+    - {repertoire: "{{ root_pki }}/private", mode: '0700', status: directory }
+    - {repertoire: "{{ intermed_pki }}", mode: '0644', status: directory }
+    - {repertoire: "{{ intermed_pki }}/certreqs", mode: '0644', status: directory }
+    - {repertoire: "{{ intermed_pki }}/certs", mode: '0644', status: directory }
+    - {repertoire: "{{ intermed_pki }}/crl", mode: '0644', status: directory }
+    - {repertoire: "{{ intermed_pki }}/newcerts", mode: '0644', status: directory }
+    - {repertoire: "{{ intermed_pki }}/private", mode: '0700', status: directory }
+    - {repertoire: "{{ root_pki }}/root-ca.index", mode: '0644', status: touch }
+    - {repertoire: "{{ root_pki }}/root-ca.crlnum", mode: '0644', status: touch }
+    - {repertoire: "{{ root_pki }}/root-ca.serial", mode: '0644', status: touch }
+    - {repertoire: "{{ root_pki }}/private/.rnd", mode: '0644', status: touch }
+    - {repertoire: "{{ intermed_pki }}/intermed-ca.index", mode: '0644', status: touch }
+    - {repertoire: "{{ intermed_pki }}/intermed-ca.crlnum", mode: '0644', status: touch }
+    - {repertoire: "{{ intermed_pki }}/intermed-ca.serial", mode: '0644', status: touch }
+    - {repertoire: "{{ intermed_pki }}/private/.rnd", mode: '0644', status: touch }
+
+- name: Initialisation des fichiers de la PKI.
+  shell: "{{ item }}"
+  args:
+    executable: /bin/bash
+  with_items:
+    - "echo 00 > {{ root_pki }}/root-ca.crlnum"
+    - "openssl rand -hex 16 > {{ root_pki }}/root-ca.serial"
+    - "echo 00 > {{ intermed_pki }}/intermed-ca.crlnum"
+    - "openssl rand -hex 16 > {{ intermed_pki }}/intermed-ca.serial"
+
+- name: Copie des templates de la PKI.
+  template:
+    src: "templates/{{ item.fichier }}"
+    dest: "{{ item.destination }}"
+    backup: no
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  with_items:
+    - {fichier: 'opensslintermed.j2', mode: '0644', destination: "{{ intermed_pki }}/intermed-ca.cnf" }
+    - {fichier: 'opensslroot.j2', mode: '0644', destination: '{{ root_pki }}/root-ca.cnf' }
+    - {fichier: 'createca.j2', mode: '0700', destination: "{{ rep_travail }}/createca.sh" }
+
+- name: Création de la PKI.
+  shell: "{{ rep_travail }}/createca.sh"
+  args:
+    executable: /bin/bash
+
+- name: Export de l'AC intermédiaire au format p12.
+  openssl_pkcs12:
+    action: export
+    path: {"{ rep_certs }}/ca_intermed_test.p12"
+    friendly_name: sccooperastux
+    privatekey_path: "{{ rep_certs }}/private.pem"
+    certificate_path: "{{ rep_certs }}/intermed-ca.cert.pem"
+    state: present
+
+- name: Export de l'AC root au format p12.
+  openssl_pkcs12:
+    action: export
+    path: "{{ rep_certs }}/ca_root_test.p12"
+    friendly_name: sccooperastux
+    privatekey_path: /opt/sccooperastux/pki/root-ca/private/root-ca.key.pem
+    certificate_path: /opt/sccooperastux/pki/root-ca/root-ca.cert.pem
+    privatekey_passphrase: "{{ pass_ca }}"
+    state: present

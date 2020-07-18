@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+
+# Modification du chemin de recherche des images pour cowsay.
+export COWPATH="/usr/share/cowsay:{{ chemin_vaches }}"
+
+# Exportation du chemin de travail.
+export TRAVASTUX="{{ rep_travail }}"
+
+# Exportation du chemin de stockage des divers fichiers et scripts.
+export SEBASTUX="{{ root_dir }}"
+
+# Exportation de la branche git.
+export GITASTUX="{{ branche }}"

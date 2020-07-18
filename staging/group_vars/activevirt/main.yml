@@ -1,0 +1,29 @@
+---
+# Personalisation de la machine.
+hostname: nickfuvirt
+commentaire: "Chez Atol pour changer de cache oeil."
+
+# Variables pour la gestion de l'arborescence perso
+scripts_openssl: "{{ root_scripts }}/openssl"
+rep_ca: "{{ root_dir }}/pki"
+root_pki: "{{ rep_ca }}/root-ca"
+rep_certs: "{{ root_dir }}/certificats"
+intermed_pki: "{{ rep_ca }}/intermed-ca"
+
+# Informations à insérer dans les certificats.
+code_pays: FR
+nom_pays: France
+nom_ville: Lille
+nom_entreprise: "sebastux intl"
+nom_service: DSI
+adresse_mail: "dsi@sebastuc.lan"
+compki_root: "Dev Root C.A. NE PAS UTILISER en prod."
+compki_intermed: "Dev Intermed C.A. NE PAS UTILISER en prod."
+
+# Infos de config pour MariaDB
+login_database: glpiadmin
+nom_database: glpi
+port_database: 3306
+
+# Branche utilisée pour le dépot de mise à jpur de la machine.
+branche: svr_assoce

@@ -1,0 +1,8 @@
+---
+- name: Installation et configuration de l'active directory.
+  hosts: activevirt
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - configserver
+    - glpi

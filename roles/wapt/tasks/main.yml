@@ -1,0 +1,220 @@
+---
+- name: Arrêt des services fail2ban et clamav.
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  with_items:
+    - fail2ban
+    - clamav-freshclam
+    - clamd@scan.service
+  ignore_errors: yes
+
+- name: Mise à jour du système.
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+
+- name: Mise à jour de l'antivirus.
+  shell: /usr/bin/freshclam
+  args:
+    executable: /bin/bash
+
+- name: Création de répertoires.
+  file:
+    path: "{{ item.repertoire }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+    state: "{{ item.status }}"
+  with_items:
+    - {repertoire: "{{ rep_travail }}", mode: '0700', status: directory }
+    - {repertoire: "{{ wapt_sauve }}", mode: '0644', status: directory }
+    - {repertoire: "{{ root_dir }}", mode: '0644', status: directory }
+    - {repertoire: "{{ chemin_divers }}", mode: '0644', status: directory }
+    - {repertoire: "{{ root_scripts }}", mode: '0644', status: directory }
+    - {repertoire: "{{ scripts_cron }}", mode: '0700', status: directory }
+    - {repertoire: "{{ scripts_monit }}", mode: '0700', status: directory }
+
+- name: Copie de la police de caractères.
+  copy:
+    src: files/banner3-D.flf
+    dest: "{{ chemin_divers }}/banner3-D.flf"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copie de divers templates.
+  template:
+    src: "templates/{{ item.fichier }}"
+    dest: "{{ item.destination }}"
+    backup: no
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  with_items:
+    - {fichier: 'changenom.j2', mode: '0700', destination: "{{ rep_travail }}/changenom.sh" }
+    - {fichier: 'scanwapt.j2', mode: '0700', destination: "{{ scripts_cron }}/scanwapt.sh" }
+    - {fichier: 'sauvewapt.j2', mode: '0700', destination: "{{ scripts_cron }}/sauvewapt.sh" }
+
+- name: Modification du nom de la machine.
+  shell: "{{ rep_travail }}/changenom.sh"
+  args:
+    executable: /bin/bash
+
+- name: Suppression du localhost en IPV6.
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^::1'
+    owner: root
+    group: root
+    mode: 0644
+    state: absent
+
+- name: Ajout de la résolution du nom du serveur.
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ ansible_default_ipv4.address }} {{ fqdn_serveur }} {{ hostname }}"
+    insertafter: '^127\.0\.0\.1'
+    state: present
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Désactivation de SElinux.
+  selinux:
+    state: disabled
+
+- name: Installation du fichier dépot wapt.
+  template:
+    src: templates/wapt.j2
+    dest: /etc/yum.repos.d/wapt.repo
+    backup: no
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Installation des packages du role.
+  yum:
+    name: "{{ liste_install }}"
+    state: latest
+
+- name: Passage de la carte en IP fixe partie 1.
+  nmcli:
+    type: ethernet
+    conn_name: "{{ ansible_default_ipv4.interface }}"
+    ifname: "{{ ansible_default_ipv4.interface }}"
+    autoconnect: yes
+    ip4: "{{ ansible_default_ipv4.address }}/24"
+    gw4: "{{ ansible_default_ipv4.gateway }}"
+    state: present
+
+- name: Passage de la carte en IP fixe partie 2.
+  lineinfile:
+    path: "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}"
+    regexp: '^BOOTPROTO'
+    line: "BOOTPROTO=static"
+    owner: root
+    group: root
+    mode: 0644
+    state: present
+
+- name: Gestion d'erreur de copie de clé public.
+  block:
+    - name: Ajout de la clé ssh (playbook).
+      authorized_key:
+        user: "{{ item }}"
+        state: present
+        key: "{{ lookup('file', '../ficscommun/ssh/ironman.pub') }}"
+        manage_dir: yes
+      with_items:
+        - root
+        - administrateur
+  rescue:
+    - name: Ajout de la clé ssh (site).
+      authorized_key:
+        user: "{{ item }}"
+        state: present
+        key: "{{ lookup('file', 'ficscommun/ssh/ironman.pub') }}"
+        manage_dir: yes
+      with_items:
+        - root
+        - administrateur
+
+- name: Modification du fichier de config du serveur ssh.
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regex }}"
+    line: "{{ item.ligne }}"
+    owner: root
+    group: root
+    mode: 0644
+    state: present
+  with_items:
+    - {regex: '^#?PermitRootLogin', ligne: 'PermitRootLogin prohibit-password'}
+    - {regex: '^#?MaxAuthTries', ligne: 'MaxAuthTries 3'}
+    - {regex: '^#?MaxSessions', ligne: 'MaxSessions 2'}
+    - {regex: '^#?PermitEmptyPasswords', ligne: 'PermitEmptyPasswords no'}
+    - {regex: '^#?PasswordAuthentication', ligne: 'PasswordAuthentication no'}
+    - {regex: '^#?PubkeyAuthentication', ligne: 'PubkeyAuthentication yes'}
+    - {regex: '^#?KerberosAuthentication', ligne: 'KerberosAuthentication no'}
+    - {regex: '^#?GSSAPIAuthentication', ligne: 'GSSAPIAuthentication no'}
+  when: status_prod
+
+- name: Fin de la 1 ère partie de l'installation, reboot de la machine.
+  reboot:
+    msg: "Redémarrage automatique du serveur par ansible."
+    reboot_timeout: 300
+
+# Lancement de la tache de création du serveur.
+- import_tasks: installserveur.yml
+
+# Installation des packages et configuration de la DB
+- import_tasks: configserveur.yml
+
+# Finalisation de l'installation.
+- name: Gestion d'erreur de copie de template.
+  block:
+    - name: Création du fichier facts (playbook).
+      template:
+        src: ../ficscommun/templates/fact.j2
+        dest: /etc/ansible/facts.d/wapt.fact
+        owner: root
+        group: root
+        backup: no
+        mode: 0644
+  rescue:
+    - name: Création du fichier facts (site).
+      template:
+        src: ficscommun/templates/fact.j2
+        dest: /etc/ansible/facts.d/wapt.fact
+        owner: root
+        group: root
+        backup: no
+        mode: 0644
+
+- name: Ecriture des fact.
+  ini_file:
+    path: /etc/ansible/facts.d/wapt.fact
+    section: install
+    option: "{{ item.option }}"
+    value: "{{ item.valeur }}"
+    mode: 0644
+    backup: no
+  with_items:
+    - {option: 'playbook_version', valeur: "{{ version_playbook }}" }
+    - {option: 'role_version', valeur: "{{ version_role }}" }
+    - {option: 'jour_installation', valeur: "{{ ansible_date_time.weekday }}" }
+    - {option: 'date_installation', valeur: "{{ ansible_date_time.day }}/{{ ansible_date_time.month }}/{{ ansible_date_time.year }}" }
+    - {option: 'heure_installation', valeur: "{{ ansible_date_time.time }}" }
+
+- name: Suppression du répertoire de travail temporaire.
+  file:
+    path: "{{ rep_travail }}"
+    state: absent
+
+- name: Redémarrage du serveur.
+  reboot:
+    msg: "Redémarrage automatique du serveur par ansible."
+    reboot_timeout: 300

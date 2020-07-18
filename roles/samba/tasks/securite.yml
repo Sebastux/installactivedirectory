@@ -1,0 +1,24 @@
+---
+- name: Modification du fichier smb.conf.
+  ini_file:
+    path: /etc/samba/smb.conf
+    section: global
+    option: "{{ item.cle }}"
+    value: "{{ item.valeur }}"
+    owner: root
+    group: root
+    mode: 0644
+    backup: yes
+    no_extra_spaces: no
+    state: "{{ item.status }}"
+  with_items:
+    - { cle: '        disable netbios', valeur: 'yes',status: present}
+    - { cle: '        smb ports', valeur: '445',status: present}
+    - { cle: '        restrict anonymous', valeur: '2',status: present}
+    - { cle: '        template shell', valeur: '/bin/bash',status: present}
+    - { cle: '        template homedir', valeur: '/home/%U',status: present}
+    - { cle: '        printcap name',valeur: '/dev/null',status: present}
+    - { cle: '        load printers',valeur: 'no',status: present}
+    - { cle: '        disable spoolss',valeur: 'yes',status: present}
+    - { cle: '        printing',valeur: 'bsd',status: present}
+    - { cle: '        password hash userPassword schemes',valeur: 'CryptSHA256 CryptSHA512',status: present}

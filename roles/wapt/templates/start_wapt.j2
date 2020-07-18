@@ -1,0 +1,24 @@
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : start_wapt.sh
+# Description      : Script de démarrage du service wapt.
+# Auteur           : MELONI Sébastien
+# Date             : 29/05/2020
+# Modification     : 29/05/2020
+# Version          : 1.00
+# Utilisation      : ./start_wapt.sh
+# Notes            : Ce script est destiné à être lancé par monit pour
+#                    démarrer le service wapt et récupérer son PID.
+# Version de bash  : 4.2.46
+#==============================================================================
+
+# Démarrage du service wapt.
+systemctl start waptserver
+
+# Récupération du PID
+numpid=$(systemctl status waptserver | grep -i pid | cut -d':' -f 2 | cut -d' ' -f 2)
+
+# Création du fichier
+echo $numpid > /var/run/wapt.pid

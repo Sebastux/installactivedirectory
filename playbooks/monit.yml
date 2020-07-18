@@ -1,0 +1,8 @@
+---
+- name: Installation de monit.
+  hosts: activevirt
+  remote_user: root
+  gather_facts: yes
+  roles:
+    #- configserver
+    - monit

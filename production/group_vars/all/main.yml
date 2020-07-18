@@ -1,0 +1,31 @@
+---
+version_playbook: "1.0.0"
+status_serveur: "production"
+status_prod: true
+domaine: thor.lan
+domaine_court: thor
+fqdn_serveur: "{{ hostname }}.{{ domaine }}"
+royaume: "{{ domaine|upper }}"
+
+
+# Variables de création de réoertoires perso
+rep_travail: /root/travail
+root_dir: /opt/sccooperastux
+chemin_divers: "{{ root_dir }}/divers"
+chemin_polices: "{{ chemin_divers }}/polices"
+chemin_vaches: "{{ chemin_divers }}/vaches"
+root_scripts: "{{ root_dir }}/scripts"
+scripts_cron: "{{ root_scripts }}/cron"
+ansible_dir: "{{ root_dir }}/ansible"
+scripts_monit: "{{ root_scripts }}/monit"
+scripts_util: "{{ root_scripts }}/utils"
+ssh_dir: "{{ root_dir }}/ssh"
+scripts_monit: "{{ root_scripts }}/monit"
+
+# =========================== Configuration monit ==============================
+# Les valeurs ci-dessous doivent être exprimées en seconde(s)
+temps_demarrage: 60
+temps_sureveillance: 120
+
+# ========================== Configuration monitorix ===========================
+titre_monitorix: "Monitoring offert par Sccooperastux."

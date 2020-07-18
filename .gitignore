@@ -1,0 +1,20 @@
+# Ignorer les clé ssh.
+ironman
+nickfury
+adminfury
+ironadmin
+
+# Ignorer les scripts de lancement des playbooks.
+install_all.sh
+install_monit.sh
+install_wapt.sh
+install_cfgsrvr.sh
+install_samba.sh
+install_glpi.sh
+
+# Ignorer le fichier contenant les mots de passe.
+#passwd.txt
+
+# Ignorer les fichiers inventaire
+production/inventory
+staging/inventory

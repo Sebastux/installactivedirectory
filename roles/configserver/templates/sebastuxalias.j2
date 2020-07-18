@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+
+# Alias secondaire de mise à jour de la machine.
+alias maj2='yum clean all; yum update *yum* rpmfusion* -y --enablerepo=rpmfusion-free-updates-testing --enablerepo=rpmfusion-nonfree-updates-testing; yum -y update'
+
+# Alias fun
+alias best='clear; cowsay -f dragon "Sebastux is the best ever !!"'
+alias worst='clear; cowsay -f eyes "Suivez mon regard pour connaitre le plus mauvais."'
+alias patron='clear; cowsay -f sodomized "C EST QUI LE PATRON ????."'
+alias infos='clear; neofetch'
+alias blagues='{{ scripts_utils }}/blagues.sh'
+
+# Permet l'affichage du nom de la machine en utilisant figlet.
+# alias name='clear; figlet -f {{ chemin_polices }}/banner3-D.flf $(hostname -s) -w 1080'
+
+# Permet l'affichage du nom et du fqdn de la machine en utilisant cowsay.
+alias name='clear; cowsay -f doomguy "Le nom de cette machine est : "$(hostname -s)'
+alias fqdn='clear; cowsay -f lara-croft "Le fqdn de cette machine est : "$(hostname)'

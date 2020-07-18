@@ -1,0 +1,16 @@
+---
+version_role: 1.0.0
+
+liste_packages: [ 'MariaDB-server', 'MariaDB-client', 'MariaDB-common', 'MariaDB-backup',
+                  'yum-utils', 'php', 'php-cli', 'php-fpm', 'php-mysqlnd', 'php-zip',
+                  'php-devel', 'php-gd', 'php-mcrypt', 'php-mbstring', 'php-curl',
+                  'php-xml', 'php-pear', 'php-bcmath', 'php-json', 'httpd',
+                  'php-opcache', 'php-apcu', 'glpi', 'fusioninventory-agent',
+                  'fusioninventory-agent-task-inventory' ]
+
+liste_depots: [ 'https://rpms.remirepo.net/enterprise/remi-release-7.rpm' ]
+
+liste_pip: [ 'pip', 'setuptools==44.1.1', 'wheel', 'PyMySQL' ]
+
+# Configuration MariaDB
+mariadb_version: 10.5.3

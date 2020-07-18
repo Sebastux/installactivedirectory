@@ -1,0 +1,11 @@
+---
+# Informations sur le role.
+version_role: '1.0.0'
+
+# Listes des dférents packages à installer
+liste_install: [ 'wget', 'sudo', 'screen', 'nmap', 'telnet', 'tcpdump', 'rsync',
+                 'net-tools', 'bind-utils', 'htop', 'figlet', 'NetworkManager-glib',
+                 'nm-connection-editor', 'libsemanage-python', 'policycoreutils-python',
+                 'java-latest-openjdk-headless', 'neofetch', 'figlet', 'cowsay' ]
+
+pip_install: ['pip', 'setuptools', 'ansible', 'pyOpenSSL', 'PyMySQL' ]

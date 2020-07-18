@@ -1,0 +1,49 @@
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : sauvewapt.sh
+# Description      : Script de sauvegarde du serveur wapt.
+# Auteur           : MELONI Sébastien
+# Date             : 21/05/2020
+# Modification     : 29/05/2020
+# Version          : 1.00
+# Utilisation      : ./changenom.sh
+# Notes            : Ce script est destiné à être lancé par cron pour
+#                    faire une sauvegarde mensuelle du serveur wapt.
+# Version de bash  : 4.2.46
+#==============================================================================
+
+# Arret des services le temps de la sauvegarde.
+echo "Arret des services."
+systemctl stop nginx
+systemctl stop waptserver
+systemctl stop wapttasks
+systemctl stop monit
+
+# Sauvegarde des répertoires essentiels
+echo "Sauvegarde des packages"
+rsync -az /var/www/html/wapt {{ wapt_sauve }}
+echo "Sauvegarde du fichier serveur."
+rsync -az /var/www/html/wapt-host {{ wapt_sauve }}
+echo "Sauvegarde du répertoire windows update"
+rsync -az /var/www/html/waptwua {{ wapt_sauve }}
+echo "Sauvegarde du répertoire de config."
+rsync -az /opt/wapt/conf {{ wapt_sauve }}
+echo "Sauvegarde des certificats https."
+rsync -az /opt/wapt/waptserver/ssl {{ wapt_sauve }}
+
+# Sauvegarde de la DB
+echo "Déplacement à la racine."
+cd /
+echo "Dump de la DB."
+sudo -u postgres pg_dumpall > /tmp/backup_wapt_$(date +%m%d).sql
+echo "Déplacement du dump."
+mv -f /tmp/backup_wapt_$(date +%m%d).sql {{ wapt_sauve }}
+
+# Redémarrage des services
+echo "Redémarrage des services."
+systemctl start nginx
+systemctl start waptserver
+systemctl start wapttasks
+systemctl start monit

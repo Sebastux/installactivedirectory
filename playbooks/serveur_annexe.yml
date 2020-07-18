@@ -1,0 +1,8 @@
+---
+- name: Installation et configuration du serveur annexe.
+  hosts: activevirt
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - wapt
+    #- monit

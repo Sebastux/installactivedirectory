@@ -1,0 +1,10 @@
+---
+- name: Installation du serveur AD de l'assoce.
+  hosts: activevirt
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - configserver
+    #- samba
+    #- glpi
+    #- monit

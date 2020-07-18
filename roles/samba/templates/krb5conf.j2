@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+
+[libdefaults]
+  default_realm = {{ royaume }}
+  dns_lookup_kdc = false
+  dns_lookup_realm = false
+
+[realms]
+  {{ domaine }} = {
+  kdc = 127.0.0.1
+  }

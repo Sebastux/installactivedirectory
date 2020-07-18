@@ -1,0 +1,315 @@
+---
+- name: Arrêt des services fail2ban et clamav.
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  with_items:
+    - fail2ban
+    - clamav-freshclam
+    - clamd@scan.service
+  ignore_errors: yes
+
+- name: Désinstallation de yum cron.
+  yum:
+    name: 'yum-cron'
+    state: absent
+    update_cache: no
+
+- name: Suppression de la sauvegarde du fichier de config de yum-cron.
+  file:
+    path: /etc/yum/yum-cron.conf.rpmsave
+    state: absent
+
+- name: Ajout du dépot neofetch.
+  get_url:
+    url: https://copr.fedorainfracloud.org/coprs/konimex/neofetch/repo/epel-7/konimex-neofetch-epel-7.repo
+    dest: /etc/yum.repos.d/neofetch.repo
+    owner: root
+    group: root
+    mode: 0644
+    backup: no
+
+- name: Mise à jour du système.
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+
+- name: Installation - mise à jour des packages pip.
+  pip:
+    executable: pip3
+    name: "{{ pip_install }}"
+    state: latest
+
+- name: Création des lien alernatives pour ansible.
+  shell: "{{ item }}"
+  args:
+    executable: /bin/bash
+    warn: false
+  with_items:
+    - alternatives --install /usr/bin/ansible ansible /opt/outils/python3/bin/ansible 50
+    - alternatives --install /usr/bin/ansible-galaxy ansible-galaxy /opt/outils/python3/bin/ansible-galaxy 50
+    - alternatives --install /usr/bin/ansible-playbook ansible-playbook /opt/outils/python3/bin/ansible-playbook 50
+    - alternatives --install /usr/bin/ansible-vault ansible-vault /opt/outils/python3/bin/ansible-vault 50
+  ignore_errors: yes
+
+- name: Installation des packages du role.
+  yum:
+    name: "{{ liste_install }}"
+    state: latest
+    update_cache: yes
+
+- name: Création de divers répertoires.
+  file:
+    path: "{{ item.repertoire }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+    state: "{{ item.status }}"
+    recurse: yes
+  with_items:
+    - {repertoire: "{{ rep_travail }}", mode: '0700', status: directory }
+    - {repertoire: '/root/.config/neofetch', mode: '0644', status: directory }
+    - {repertoire: "{{ root_dir }}", mode: '0744', status: directory }
+    - {repertoire: "{{ ansible_dir }}", mode: '0700', status: directory }
+    - {repertoire: "{{ ssh_dir }}", mode: '0644', status: directory }
+    - {repertoire: "{{ chemin_divers }}", mode: '0644', status: directory }
+    - {repertoire: "{{ chemin_polices }}", mode: '0644', status: directory }
+    - {repertoire: "{{ root_scripts }}", mode: '0644', status: directory }
+    - {repertoire: "{{ scripts_cron }}", mode: '0644', status: directory }
+    - {repertoire: "{{ scripts_monit }}", mode: '0644', status: directory }
+    - {repertoire: "{{ scripts_util }}", mode: '0644', status: directory }
+
+- name: Copie de la police de caractères.
+  copy:
+    src: files/banner3-D.flf
+    dest: "{{ chemin_polices }}/banner3-D.flf"
+    owner: root
+    group: root
+    backup: no
+    mode: 0644
+
+- name: Copie du template de changement de nom.
+  template:
+    src: templates/changenom.j2
+    dest: "{{ rep_travail }}/changenom.sh"
+    backup: no
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Modification du nom de la machine.
+  shell: "{{ rep_travail }}/changenom.sh"
+  args:
+    executable: /bin/bash
+
+- name: Suppression du localhost en IPV6.
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^::1'
+    owner: root
+    group: root
+    mode: 0644
+    state: absent
+
+- name: Ajout de la résolution du nom du serveur.
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ ansible_default_ipv4.address }}  {{ fqdn_serveur }} {{ hostname }}"
+    insertafter: '^127\.0\.0\.1'
+    state: present
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Passage de la carte en IP fixe partie 1.
+  nmcli:
+    type: ethernet
+    conn_name: "{{ ansible_default_ipv4.interface }}"
+    ifname: "{{ ansible_default_ipv4.interface }}"
+    autoconnect: yes
+    ip4: "{{ ansible_default_ipv4.address }}/24"
+    gw4: "{{ ansible_default_ipv4.gateway }}"
+    dns4: "{{ ansible_default_ipv4.gateway }}"
+    state: present
+
+- name: Passage de la carte en IP fixe partie 2.
+  lineinfile:
+    path: "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}"
+    regexp: '^BOOTPROTO'
+    line: "BOOTPROTO=static"
+    owner: root
+    group: root
+    mode: 0644
+    state: present
+
+- name: Gestion d'erreur de l'installation de plusieurs templates.
+  block:
+    - name: Installation des clés publique
+      authorized_key:
+        user: "{{ item.compte }}"
+        state: present
+        key: "{{ lookup('file', item.cle ) }}"
+        manage_dir: yes
+      with_items:
+        - {compte: 'root', cle: '../ficscommun/ssh/nickfury.pub' }
+        - {compte: 'administrateur', cle: '../ficscommun/ssh/adminfury.pub' }
+  rescue:
+    - name: Installation des clés publique
+      authorized_key:
+        user: "{{ item.compte }}"
+        state: present
+        key: "{{ lookup('file', item.cle ) }}"
+        manage_dir: yes
+      with_items:
+        - {compte: 'root', cle: 'ficscommun/ssh/nickfury.pub' }
+        - {compte: 'administrateur', cle: 'ficscommun/ssh/adminfury.pub' }
+
+- name: Modification du fichier de config du serveur ssh.
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regex }}"
+    line: "{{ item.ligne }}"
+    owner: root
+    group: root
+    mode: 0644
+    state: present
+  with_items:
+    - {regex: '^#?PermitRootLogin', ligne: 'PermitRootLogin prohibit-password'}
+    - {regex: '^#?MaxAuthTries', ligne: 'MaxAuthTries 3'}
+    - {regex: '^#?MaxSessions', ligne: 'MaxSessions 2'}
+    - {regex: '^#?PermitEmptyPasswords', ligne: 'PermitEmptyPasswords no'}
+    - {regex: '^#?PasswordAuthentication', ligne: 'PasswordAuthentication no'}
+    - {regex: '^#?PubkeyAuthentication', ligne: 'PubkeyAuthentication yes'}
+    - {regex: '^#?KerberosAuthentication', ligne: 'KerberosAuthentication no'}
+    - {regex: '^#?GSSAPIAuthentication', ligne: 'GSSAPIAuthentication no'}
+
+- name: Copie de plusieurs templates.
+  template:
+    src: "templates/{{ item.fichier }}"
+    dest: "{{ item.destination }}"
+    backup: no
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  with_items:
+    - {fichier: 'majpc', destination: "{{ ssh_dir }}/cle_deploy", mode: '0600' }
+    - {fichier: 'installmaj.j2', destination: "{{ rep_travail }}/installmaj.sh", mode: '0700' }
+    - {fichier: 'banniere.j2', destination: '/etc/profile.d/sebbanniere.sh', mode: '0644' }
+    - {fichier: 'neofetch.j2', mode: '0644', destination: '/root/.config/neofetch/config.conf' }
+    - {fichier: 'sebastuxalias.j2', destination: "/etc/profile.d/aliastux.sh", mode: '0644' }
+    - {fichier: 'exportastux.j2', destination: "/etc/profile.d/exportastux.sh", mode: '0644' }
+    - { source: 'blagues.j2', destination: "{{ scripts_utils }}/blagues.sh", mode: '0700' }
+
+- name: Synchronisation du dépot git pour le playbook de maj.
+  shell: "{{ rep_travail }}/installmaj.s"
+  args:
+    executable: /bin/bash
+    warn: false
+
+- name: Modification du script de lancement e la maj et ajout de la clé de déchiffrement.
+  template:
+    src: "templates/{{ item.fichier }}"
+    dest: "{{ item.destination }}"
+    backup: no
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  with_items:
+    - {fichier: 'majPC.j2', destination: "{{ ansible_dir }}/majPC.sh", mode: '0700' }
+    - {fichier: 'passwd_vault.j2', destination: "{{ ansible_dir }}/passwd.txt", mode: '0600' }
+
+- name: Modification de l'alias maj pour utiliser le playbook.
+  lineinfile:
+    path: /etc/profile.d/sctuxalias.sh
+    regexp: "^alias maj"
+    line: "alias maj='{{ ansible_dir }}/majdepot.sh'"
+    owner: root
+    group: root
+    mode: 0644
+    state: present
+
+- name: Création de la crontab pour la mise à jour auto de la machine.
+  cron:
+    name: "Mise à jour de la machine"
+    day: "*"
+    hour: "15"
+    minute: "30"
+    cron_file: /etc/cron.daily/ansiblemaj
+    user: root
+    job: "{{ ansible_dir }}/majPC.sh"
+    state: present
+    disabled: no
+  when: status_prod
+
+- name: Copie des vaches bonus.
+  copy:
+    src: files/vaches.tar.bz2
+    dest: "{{ rep_travail }}"
+    owner: root
+    group: root
+    backup: no
+    mode: 0644
+
+- name: Décompression des vaches bonus.
+  unarchive:
+    src: "{{ rep_travail }}/vaches.tar.bz2"
+    dest: "{{ chemin_divers}}"
+    remote_src: yes
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Gestion d'erreur de copie de template.
+  block:
+    - name: Création du fichier facts (playbook).
+      template:
+        src: ../ficscommun/templates/fact.j2
+        dest: /etc/ansible/facts.d/installsvrassoce.fact
+        owner: root
+        group: root
+        backup: no
+        mode: 0644
+  rescue:
+    - name: Création du fichier facts (site).
+      template:
+        src: ficscommun/templates/fact.j2
+        dest: /etc/ansible/facts.d/installsvrassoce.fact
+        owner: root
+        group: root
+        backup: no
+        mode: 0644
+
+- name: Renseignement du fichiers de fact.
+  ini_file:
+    path: /etc/ansible/facts.d/installsvrassoce.fact
+    section: playbook
+    option: "{{ item.option }}"
+    value: "{{ item.valeur }}"
+    mode: 0644
+    backup: no
+  with_items:
+    - {option: 'playbook_version', valeur: "{{ version_playbook }}" }
+    - {option: 'role_version', valeur: "{{ version_role }}" }
+    - {option: 'jour_installation', valeur: "{{ ansible_date_time.weekday }}" }
+    - {option: 'date_installation', valeur: "{{ ansible_date_time.day }}/{{ ansible_date_time.month }}/{{ ansible_date_time.year }}" }
+    - {option: 'heure_installation', valeur: "{{ ansible_date_time.time }}" }
+
+- name: Suppression du répertoire de travail temporaire.
+  file:
+    path: "{{ rep_travail }}"
+    state: absent
+
+- name: Interdiction au compte admin d'utiliser cron.
+  lineinfile:
+    path: /etc/cron.deny
+    line: administrateur
+    state: present
+    create: yes
+    backup: no
+
+# - name: Redémarrage du serveur.
+#   reboot:
+#     msg: "Redémarrage automatique du serveur par ansible."
+#     reboot_timeout: 300

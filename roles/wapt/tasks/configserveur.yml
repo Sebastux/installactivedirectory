@@ -1,0 +1,144 @@
+---
+- name: Exécution de la tache de postconf avec forçage https.
+  shell: /opt/wapt/waptserver/scripts/postconf.sh -q --force-https
+  register: postconf_passwd
+  args:
+    warn: false
+  when: use_https
+
+- name: Exécution de la tache de postconf sans forçage https.
+  shell: /opt/wapt/waptserver/scripts/postconf.sh -q
+  register: postconf_passwd
+  args:
+    warn: false
+  when: not use_https
+
+- debug:
+    msg: "{{ postconf_passwd.stdout.split('\n')| last }}"
+
+- name: Désactivation de la fonction d'enregistrement.
+  ini_file:
+    path: /etc/yum/pluginconf.d/subscription-manager.conf
+    section: main
+    option: enabled
+    value: 0
+    mode: 0644
+    backup: no
+
+- name: Création de la tache de scan des packages wapt.
+  cron:
+    name: "Scan des packages wapt"
+    day: "*"
+    hour: "14"
+    minute: "30"
+    cron_file: /etc/cron.daily/scanwapt
+    user: root
+    job: "{{ scripts_cron }}/scanwapt.sh"
+    state: present
+    disabled: no
+  when: status_prod
+
+- name: Création de la tache de sauvegarde de wapt.
+  cron:
+    name: "Sauvegarde du serveur wapt"
+    day: "1"
+    hour: "19"
+    minute: "30"
+    cron_file: /etc/cron.monthly/sauvewapt
+    user: root
+    job: "{{ scripts_cron }}/sauvewapt.sh"
+    state: present
+    disabled: no
+  when: status_prod
+
+- name: Création de repertoires pour ansible.
+  file:
+    path: "{{ item.repertoire }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+    state: "{{ item.status }}"
+  with_items:
+    - {repertoire: "{{ ansible_dir }}", mode: '0700', status: directory }
+    - {repertoire: "{{ ssh_dir }}", mode: '0600', status: directory }
+
+- name: Gestion d'erreur de l'installation de plusieurs templates.
+  block:
+    - name: Copie de la clé ssh du dépot git et des scripts de synchro (playbook).
+      template:
+        src: "../ficscommun/{{ item.fichier }}"
+        dest: "{{ item.destination }}"
+        backup: no
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      with_items:
+        - {fichier: 'ssh/majpc', destination: "{{ ssh_dir }}/cle_deploy", mode: '0600' }
+        - {fichier: 'templates/installmaj.j2', destination: "{{ rep_travail }}/installmaj.sh", mode: '0700' }
+  rescue:
+    - name: Copie de la clé ssh du dépot git et des scripts de synchro (site).
+      template:
+        src: "ficscommun/{{ item.fichier }}"
+        dest: "{{ item.destination }}"
+        backup: no
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      with_items:
+        - {fichier: 'ssh/majpc', destination: "{{ ssh_dir }}/majpc", mode: '0600' }
+        - {fichier: 'templates/installmaj.j2', destination: "{{ rep_travail }}/installmaj.sh", mode: '0700' }
+
+- name: Synchronisation du dépot git pour le playbook de maj.
+  shell: "{{ rep_travail }}/installmaj.sh"
+  args:
+    executable: /bin/bash
+    warn: false
+
+- name: Gestion d'erreur de l'installation de plusieurs templates.
+  block:
+    - name: Installation de la clé de chiffrement et de scripts divers (playbook).
+      template:
+        src: "../ficscommun/{{ item.fichier }}"
+        dest: "{{ item.destination }}"
+        backup: no
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      with_items:
+        - {fichier: 'divers/passwd_vault.j2', destination: "{{ ansible_dir }}/passwd.txt", mode: '0600' }
+        - {fichier: 'templates/sebastuxalias.j2', destination: "/etc/profile.d/sebastuxalias.sh", mode: '0644' }
+        - {fichier: 'templates/majPC.j2', destination: "{{ ansible_dir }}/majPC.sh", mode: '0700' }
+  rescue:
+    - name: Installation de la clé de chiffrement et de scripts divers  (site).
+      template:
+        src: "ficscommun/{{ item.fichier }}"
+        dest: "{{ item.destination }}"
+        backup: no
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      with_items:
+        - {fichier: 'divers/passwd_vault.j2', destination: "{{ ansible_dir }}/passwd.txt", mode: '0600' }
+        - {fichier: 'templates/sebastuxalias.j2', destination: "/etc/profile.d/sebastuxalias.sh", mode: '0644' }
+        - {fichier: 'templates/majPC.j2', destination: "{{ ansible_dir }}/majPC.sh", mode: '0700' }
+
+- name: Désinstallation de yum cron.
+  yum:
+    name: 'yum-cron'
+    state: absent
+    update_cache: no
+
+- name: Suppression de la sauvegarde du fichier de config de cron.
+  file:
+    path: /etc/yum/yum-cron.conf.rpmsave
+    state: absent
+
+- name: Modification de l'alias maj pour utiliser le playbook.
+  lineinfile:
+    path: /etc/profile.d/sctuxalias.sh
+    regexp: "^alias maj"
+    line: "alias maj='{{ ansible_dir }}/majPC.sh'"
+    owner: root
+    group: root
+    mode: 0644
+    state: present

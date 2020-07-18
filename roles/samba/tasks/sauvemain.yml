@@ -1,0 +1,207 @@
+---
+- name: Création du répertoire temporaire de travail.
+  file:
+    path: /root/travail
+    owner: root
+    group: root
+    mode: 0700
+    state: directory
+
+- name: Ajout du dépot tranquilIt.
+  yum_repository:
+    name: tis-samba
+    description: Dépot RPM tranquil IT pour Samba
+    file: tissamba
+    baseurl: http://samba.tranquil.it/centos7/samba-{{ version_samba }}/
+    gpgkey: http://samba.tranquil.it/RPM-GPG-KEY-TISSAMBA-7
+    gpgcheck: yes
+    enabled: yes
+    owner: root
+    group: root
+    mode: 0644
+    state: present
+
+- name: Installation des packages pour l'A.D..
+  yum:
+    name: "{{ liste_install }}"
+    state: latest
+    update_cache: yes
+
+- name: Installation de package pip.
+  pip:
+    executable: pip3
+    name: "{{ pip_install }}"
+    state: latest
+
+- name: Téléchargement de la liste des DNS racine.
+  get_url:
+    url: https://www.internic.net/zones/named.root
+    dest: /var/named/named.root
+    mode: 0640
+    owner: root
+    group: named
+
+- name: Ouverture de ports du pare-feu.
+  firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: yes
+  with_items:
+    - 53/tcp
+    - 53/udp
+    - 88/tcp
+    - 88/udp
+    - 123/udp
+    - 135/tcp
+    - 137-138/udp
+    - 139/tcp
+    - 389/tcp
+    - 389/udp
+    - 445/tcp
+    - 464/tcp
+    - 464/udp
+    - 636/tcp
+    - 3268-3269/tcp
+    - 49152-65535/tcp
+
+- name: Suppression des fichiers de configuration de Kerberos et Samba.
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/krb5.conf
+    - /etc/samba/smb.conf
+
+- name: Arret temporaire de plusieurs services.
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  with_items:
+    - fail2ban
+    - yum-cron
+    - clamav-freshclam
+    - samba
+    - named
+  ignore_errors: yes
+
+- name: Copie des templates.
+  template:
+    src: "templates/{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+    backup: no
+  with_items:
+    - {source: 'krb5conf.j2' , destination: '/etc/krb5.conf',mode: '0644' }
+    - {source: 'scriptinstall.j2' , destination: '/root/travail/scriptinstall.sh',mode: '0700' }
+
+- name: Exécution du script de création de l'AD
+  shell: /root/travail/scriptinstall.sh
+  args:
+    executable: /bin/bash
+    chdir: /root/travail
+
+- name: Suppression d'un fichiers de configuration inutile.
+  file:
+    path: /var/lib/samba/private/krb5.conf
+    state: absent
+
+- name: Création d'un lien symbolique.
+  file:
+    src: /etc/krb5.conf
+    dest: /var/lib/samba/private/krb5.conf
+    owner: root
+    group: root
+    mode: 0644
+    state: link
+
+- name: Modification du DNS de la machine
+  lineinfile:
+    path: "/etc/sysconfig/network-scripts/ifcfg-{{ ansible_default_ipv4.interface }}"
+    regexp: '^DNS1'
+    line: "DNS1=127.0.0.1"
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Redémarrage du serveur pour validation de la 1 ère partie.
+  reboot:
+    msg: "Redémarrage automatique du serveur par ansible."
+    reboot_timeout: 300
+
+- name: Arret temporaire de plusieurs services.
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  with_items:
+    - fail2ban
+    - yum-cron
+    - clamav-freshclam
+    - samba
+    - named
+  ignore_errors: yes
+
+- name: Copie du fichier de configuration du DNS.
+  template:
+    src: templates/named.j2
+    dest: /etc/named.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Désactivation du bind de l'IPV6
+  lineinfile:
+    path: /etc/sysconfig/named
+    line: "OPTIONS=-4"
+    insertafter: "EOF"
+    state: present
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Modification du fichier smb.conf.
+  ini_file:
+    path: /etc/samba/smb.conf
+    section: global
+    option: "{{ item.cle }}"
+    value: "{{ item.valeur }}"
+    owner: root
+    group: root
+    mode: 0644
+    backup: no
+    state: "{{ item.status }}"
+  with_items:
+    - { cle: 'dns forwarder',valeur: '1.1.1.1',status: absent}
+    - { cle: '        server services', valeur: '-dns',status: present}
+  tags: toto
+
+- name: Création du répertoire pour bind.
+  file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: 0644
+    state: directory
+  with_items:
+    - /var/lib/samba/bind-dns
+    - /var/lib/samba/bind-dns/dns
+  tags: toto
+
+- name: Utilisation de bind comme DNS.
+  shell: "samba_upgradedns --dns-backend=BIND9_DLZ"
+  args:
+    executable: /bin/bash
+
+- name: Suppression du répertoire de travail temporaire.
+  file:
+    path: /root/travail
+    state: absent
+
+- name: Redémarrage du serveur pour finalisation.
+  reboot:
+    msg: "Redémarrage automatique du serveur par ansible."
+    reboot_timeout: 300

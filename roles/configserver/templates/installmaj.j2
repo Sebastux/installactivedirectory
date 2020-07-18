@@ -1,0 +1,49 @@
+# {{ ansible_managed }}
+
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : installmaj.sh
+# Description      : Script d'installation d'un dépot git'.
+# Auteur           : MELONI Sébastien
+# Date             : 25/05/2020
+# Modification     : 25/05/2020
+# Version          : 1.00
+# Utilisation      : ./installmaj.sh
+# Notes            : Ce script est destiné à installer un playbook permettant
+#                    d'éxécuter une tache de mise à jour automatisé
+# Version de bash  : 4.2.46
+#==============================================================================
+
+clear
+
+# Récupération de l'agent ssh
+# echo "Récupération de l'agent ssh." > toto.txt
+eval "$(ssh-agent -s)"
+
+# Chargement de la clé
+# echo "Chargement de la clé ssh." >> toto.txt
+ssh-add {{ ssh_dir }}/cle_deploy
+
+# Clonage du dépot.
+# echo "Récupération des clés ssh de github." >> toto.txt
+echo "Récupération des clés ssh de github."
+ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+echo ""
+echo "Clonage du dépot"
+# echo "Clonage du dépot." >> toto.txt
+git clone git@github.com:Sebastux/MajPcServer.git {{ ansible_dir }}
+
+# Changement de branche.
+# echo "Déplacement dans le répertoire." >> toto.txt
+cd {{ ansible_dir }}
+# echo "Changement de branche." >> toto.txt
+git checkout {{ branche }}
+#echo "Configuration du dépot." >> toto.txt
+git config pull.rebase false --global
+
+# Suppression de la clé ssh
+# echo "Déchargement de la clé ssh." >> toto.txt
+ssh-add -D

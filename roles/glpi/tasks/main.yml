@@ -1,0 +1,203 @@
+---
+- name: Arrêt des services fail2ban et clamav.
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  with_items:
+    - fail2ban
+    - clamav-freshclam
+    - clamd@scan.service
+  ignore_errors: yes
+
+- name: Installation du dépot MariaDB et fusioninventory.
+  template:
+    src: "templates/{{ item.source }}"
+    dest: "/etc/yum.repos.d/{{ item.destination }}"
+    owner: root
+    group: root
+    backup: no
+    mode: 0644
+  with_items:
+    - {source: 'mariadb.j2', destination: 'mariadb.repo' }
+    - {source: 'fusioninventory-agent.j2', destination: 'fusioninventory-agent.repo' }
+
+- name: Installation des dépots remi.
+  yum:
+    name: "{{ liste_depots }}"
+    state: latest
+
+- name: Activation des dépots Rémi.
+  shell: "{{ item }}"
+  args:
+    executable: /bin/bash
+  with_items:
+    - yum-config-manager --disable remi-php54
+    - yum-config-manager --enable remi-php74
+    - yum-config-manager --enable remi
+    - yum-config-manager --enable remi-glpi94
+
+- name: Mise à jour du système.
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+
+- name: Création de répertoires.
+  file:
+    path: "{{ item.repertoire }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+    state: "{{ item.status }}"
+  with_items:
+    - {repertoire: "{{ rep_travail }}", mode: '0700', status: directory }
+    - {repertoire: "{{ root_dir }}", mode: '0644', status: directory }
+    - {repertoire: "{{ chemin_divers }}", mode: '0644', status: directory }
+    - {repertoire: "{{ root_scripts }}", mode: '0644', status: directory }
+    - {repertoire: "{{ scripts_cron }}", mode: '0700', status: directory }
+
+- name: Installation des packages du role.
+  yum:
+    name: "{{ liste_packages }}"
+    state: latest
+
+- name: Configuration de MariaDB.
+  import_tasks: mariadb.yml
+
+- name: Création du fichier fichier de config de GLPI et d'apache.
+  template:
+    src: "templates/{{ item.source }}"
+    dest: "{{ item.destination }}"
+    owner: root
+    group: root
+    backup: no
+    mode: 0644
+  with_items:
+    - { source: 'glpi.j2', destination: '/etc/httpd/conf.d/glpi.conf' }
+    - { source: 'httptux.j2', destination: '/etc/httpd/conf.d/httptux.conf' }
+
+- name: Téléchargement des plugins GLPI.
+  get_url:
+    url: "{{ item.source }}"
+    dest: "{{ rep_travail }}/{{ item.dest }}"
+    backup: no
+    owner: root
+    group: root
+    mode: 0640
+  with_items:
+    - {source: 'https://github.com/fusioninventory/fusioninventory-for-glpi/releases/download/glpi9.4%2B2.4/fusioninventory-9.4+2.4.tar.bz2', dest: 'fusioninventory-9.4+2.4.tar.bz2' }
+    - {source: 'https://forge.glpi-project.org/attachments/download/2297/glpi-archires-2.7.0.tar.gz', dest: 'glpi-archires-2.7.0.tar.gz' }
+    - {source: 'https://forge.glpi-project.org/attachments/download/2293/glpi-pdf-1.6.0.tar.gz', dest: 'glpi-pdf-1.6.0.tar.gz' }
+    - {source: 'https://github.com/pluginsGLPI/addressing/releases/download/2.8.0/glpi-addressing-2.8.0.tar.gz', dest: 'glpi-addressing-2.8.0.tar.gz' }
+    - {source: 'https://github.com/pluginsGLPI/geninventorynumber/releases/download/2.4.1/glpi-geninventorynumber-2.4.1.tar.bz2', dest: 'glpi-geninventorynumber-2.4.1.tar.bz2' }
+    - {source: 'https://github.com/pluginsGLPI/barcode/releases/download/2.4.1/glpi-barcode-2.4.1.tar.bz2', dest: 'glpi-barcode-2.4.1.tar.bz2' }
+    - {source: 'https://github.com/pluginsGLPI/formcreator/releases/download/v2.9.2/glpi-formcreator-2.9.2.tar.bz2', dest: 'glpi-formcreator-2.9.2.tar.bz2' }
+    - {source: 'https://github.com/InfotelGLPI/webapplications/releases/download/2.6.0/glpi-webapplications-2.6.0.tar.gz', dest: 'glpi-webapplications-2.6.0.tar.gz' }
+    - {source: 'https://github.com/InfotelGLPI/mydashboard/releases/download/1.7.7/glpi-mydashboard-1.7.7.tar.gz', dest: 'glpi-mydashboard-1.7.7.tar.gz' }
+    - {source: 'https://github.com/ticgal/GDrive/releases/download/1.2.0/glpi-gdrive-1.2.0.tar.gz', dest: 'glpi-gdrive-1.2.0.tar.gz' }
+    - {source: 'https://github.com/ericferon/glpi-statecheck/releases/download/v2.1.2/statecheck-v2.1.2.tar.gz', dest: 'statecheck-v2.1.2.tar.gz' }
+  ignore_errors: yes
+
+- name: Installation des plugins dans le répertoire GLPI.
+  unarchive:
+    src: "{{ rep_travail }}/{{ item }}"
+    dest: /usr/share/glpi/plugins/
+    remote_src: yes
+    backup: no
+    owner: root
+    group: root
+    mode: 0755
+  with_items:
+    - fusioninventory-9.4+2.4.tar.bz2
+    - glpi-archires-2.7.0.tar.gz
+    - glpi-pdf-1.6.0.tar.gz
+    - glpi-addressing-2.8.0.tar.gz
+    - glpi-geninventorynumber-2.4.1.tar.bz2
+    - glpi-barcode-2.4.1.tar.bz2
+    - glpi-formcreator-2.9.2.tar.bz2
+    - glpi-webapplications-2.6.0.tar.gz
+    - glpi-mydashboard-1.7.7.tar.gz
+    - glpi-gdrive-1.2.0.tar.gz
+    - statecheck-v2.1.2.tar.gz
+  ignore_errors: yes
+
+- name: Activation du serveur apache et de php.
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  with_items:
+    - httpd
+    - php-fpm
+
+- name: Création de la tache de scan des packages wapt.
+  cron:
+    name: "Scan des packages wapt"
+    day: "*"
+    hour: "14"
+    minute: "30"
+    cron_file: /etc/cron.daily/scanwapt
+    user: root
+    job: "{{ scripts_cron }}/scanwapt.sh"
+    state: present
+    disabled: no
+  when: status_prod
+
+- name: Création de la tache de sauvegarde de wapt.
+  cron:
+    name: "Sauvegarde du serveur wapt"
+    day: "1"
+    hour: "19"
+    minute: "30"
+    cron_file: /etc/cron.monthly/sauvewapt
+    user: root
+    job: "{{ scripts_cron }}/sauvewapt.sh"
+    state: present
+    disabled: no
+  when: status_prod
+
+- name: Gestion d'erreur de copie de template.
+  block:
+    - name: Création du fichier facts (playbook).
+      template:
+        src: ../ficscommun/templates/fact.j2
+        dest: /etc/ansible/facts.d/glpi.fact
+        owner: root
+        group: root
+        backup: no
+        mode: 0644
+  rescue:
+    - name: Création du fichier facts (site).
+      template:
+        src: ficscommun/templates/fact.j2
+        dest: /etc/ansible/facts.d/glpi.fact
+        owner: root
+        group: root
+        backup: no
+        mode: 0644
+
+- name: Ecriture des fact.
+  ini_file:
+    path: /etc/ansible/facts.d/glpi.fact
+    section: install
+    option: "{{ item.option }}"
+    value: "{{ item.valeur }}"
+    mode: 0644
+    backup: no
+  with_items:
+    - {option: 'playbook_version', valeur: "{{ version_playbook }}" }
+    - {option: 'role_version', valeur: "{{ version_role }}" }
+    - {option: 'jour_installation', valeur: "{{ ansible_date_time.weekday }}" }
+    - {option: 'date_installation', valeur: "{{ ansible_date_time.day }}/{{ ansible_date_time.month }}/{{ ansible_date_time.year }}" }
+    - {option: 'heure_installation', valeur: "{{ ansible_date_time.time }}" }
+
+- name: Suppression du répertoire de travail temporaire.
+  file:
+    path: "{{ rep_travail }}"
+    state: absent
+
+- name: Redémarrage du serveur.
+  reboot:
+    msg: "Redémarrage automatique du serveur par ansible."
+    reboot_timeout: 300

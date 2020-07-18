@@ -1,0 +1,20 @@
+---
+# Informations sur le role.
+version_role: 1.0.0
+
+# Listes des dférents packages à installer
+liste_install: [ 'postgresql96-server', 'postgresql96-contrib', 'tis-waptserver',
+                 'tis-waptsetup', 'cabextract', 'krb5-workstation', 'msktutil',
+                 'nginx-mod-http-auth-spnego', 'NetworkManager-glib',
+                 'nm-connection-editor', 'neofetch', 'figlet', 'cowsay' ]
+
+packages_pip: [ 'pip', 'setuptools', 'wheel', 'ansible' ]
+
+# Version wapt pour le template du ficher repo
+wapt_version: 1.8.1.6756
+
+# Variable de configuration du serveur wapt.
+use_https: false
+
+# Répertoire de sauvegarde du serveur wapt.
+wapt_sauve: /home/waptsauve/

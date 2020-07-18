@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : majpc.sh
+# Description      : Script de mise à jour de PC.
+# Auteur           : MELONI Sébastien
+# Date             : 25/05/2020
+# Modification     : 12/06/2020
+# Version          : 1.00
+# Utilisation      : ./majpc.sh
+# Notes            : Ce script est destiné à lancer un playbook ansible permettant
+#                    la mise à jour de la machine ainsi que sa MCO / MCS.
+# Version de bash  : 4.2.46
+#==============================================================================
+
+clear
+
+# Changement de répertoire.
+cd {{ ansible_dir }}
+
+# Lancement de la tache de mise à jour.
+cowthink "Exécution du playbook de mise à jour."
+#echo "********* Exécution du playbook de mise à jour. *********"
+echo ""
+{% if status_prod is sameas false %}
+ansible-playbook site.yml -i staging --flush-cache
+{% else %}
+ansible-playbook site.yml -i production --flush-cache
+{% endif %}

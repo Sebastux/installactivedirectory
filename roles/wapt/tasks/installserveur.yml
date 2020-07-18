@@ -1,0 +1,53 @@
+
+---
+- name: Arrêt des services fail2ban et clamav.
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: yes
+  with_items:
+    - fail2ban
+    - clamav-freshclam
+    - clamd@scan.service
+  ignore_errors: yes
+
+- name: Installation des packages pip3.
+  pip:
+    executable: /usr/bin/pip3
+    name: "{{ packages_pip }}"
+    state: latest
+  ignore_errors: yes
+
+- name: Création des lien alernatives pour ansible.
+  shell: "{{ item }}"
+  args:
+    executable: /bin/bash
+    warn: false
+  with_items:
+    - alternatives --install /usr/bin/ansible ansible /opt/outils/python3/bin/ansible 50
+    - alternatives --install /usr/bin/ansible-galaxy ansible-galaxy /opt/outils/python3/bin/ansible-galaxy 50
+    - alternatives --install /usr/bin/ansible-playbook ansible-playbook /opt/outils/python3/bin/ansible-playbook 50
+    - alternatives --install /usr/bin/ansible-vault ansible-vault /opt/outils/python3/bin/ansible-vault 50
+  ignore_errors: yes
+
+- name: Vérification de l'initialisation de postgres.
+  stat:
+    path: /var/lib/pgsql/9.6/data/PG_VERSION
+  register: postgres
+
+- name: Initialisation de la base de donnée.
+  shell: /usr/pgsql-9.6/bin/postgresql96-setup initdb
+  when: not postgres.stat.exists
+  args:
+    executable: /bin/bash
+    warn: false
+
+- name: Activation des services WAPT.
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - postgresql-9.6
+    - waptserver
+    - nginx

@@ -1,0 +1,30 @@
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : createbase.sh
+# Description      : Script de configuration de MariaDB.
+# Auteur           : MELONI Sébastien
+# Date             : 06/06/2020
+# Modification     : 06/06/2020
+# Version          : 1.00
+# Utilisation      : ./createbase.sh
+# Notes            : Ce script est destiné à être lancé par ansible pour
+#                    créer un compte et une base sur MariaDB.
+# Version de bash  : 4.2.46
+#==============================================================================
+
+# Connexion à la DB.
+mysqladmin -u root password "{{ mdp_root }}"
+
+# Création de la DB {{ nom_database }}.
+mysql -u root -p"{{ mdp_root }}" -e "CREATE DATABASE {{ nom_database }}"
+
+# Création de l'utilisateur {{ login_database }}.
+mysql -u root -p"{{ mdp_root }}" -e "CREATE USER {{ login_database }}@localhost IDENTIFIED BY '{{ mdp_database }}'"
+
+# L'utilisateur {{ login_database }} posséde tous les droirs sur la db {{ nom_database }}.
+mysql -u root -p"{{ mdp_root }}" -e "GRANT ALL PRIVILEGES ON {{ nom_database }}.* TO {{ login_database }}@localhost"
+
+# Rechargement de tous les droits.
+mysql -u root -p"{{ mdp_root }}" -e "FLUSH PRIVILEGES"

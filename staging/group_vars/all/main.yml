@@ -1,0 +1,35 @@
+---
+# Variables interne
+version_playbook: "development"
+
+# Configuration du serveur
+domaine: raison.lan
+domaine_court: raison
+fqdn_serveur: "{{ hostname }}.{{ domaine }}"
+royaume: "{{ domaine|upper }}"
+
+status_serveur: "development"
+
+# Informations divers
+status_prod: false
+
+# Variables de création de réoertoires perso
+rep_travail: /root/travail
+root_dir: /opt/sebastux
+chemin_divers: "{{ root_dir }}/divers"
+chemin_polices: "{{ chemin_divers }}/polices"
+chemin_vaches: "{{ chemin_divers }}/vaches"
+root_scripts: "{{ root_dir }}/scripts"
+scripts_cron: "{{ root_scripts }}/cron"
+ansible_dir: "{{ root_dir }}/ansible"
+scripts_monit: "{{ root_scripts }}/monit"
+scripts_util: "{{ root_scripts }}/utils"
+ssh_dir: "{{ root_dir }}/ssh"
+
+# =========================== Configuration monit ==============================
+# Les valeurs ci-dessous doivent être exprimées en seconde(s)
+temps_demarrage: 10
+temps_sureveillance: 15
+
+# ========================== Configuration monitorix ===========================
+titre_monitorix: "Monitoring de test."

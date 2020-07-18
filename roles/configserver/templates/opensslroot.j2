@@ -1,0 +1,131 @@
+# {{ ansible_managed }}
+
+#
+# OpenSSL configuration for the Root Certification Authority.
+#
+
+#
+# This definition doesn't work if HOME isn't defined.
+CA_HOME                 = {{ root_pki }}
+RANDFILE                = {{ root_pki }}/private/.rnd
+
+#
+# Default Certification Authority
+[ ca ]
+default_ca              = root_ca
+
+#
+# Root Certification Authority
+[ root_ca ]
+dir                     = {{ root_pki }}
+certs                   = {{ root_pki }}/certs
+serial                  = {{ root_pki }}/root-ca.serial
+database                = {{ root_pki }}/root-ca.index
+new_certs_dir           = {{ root_pki }}/newcerts
+certificate             = {{ root_pki }}/root-ca.cert.pem
+private_key             = {{ root_pki }}/private/root-ca.key.pem
+default_days            = 1826 # Five years
+crl                     = {{ root_pki }}/root-ca.crl
+crl_dir                 = {{ root_pki }}/crl
+crlnumber               = {{ root_pki }}/root-ca.crlnum
+name_opt                = multiline, align
+cert_opt                = no_pubkey
+copy_extensions         = copy
+crl_extensions          = crl_ext
+default_crl_days        = 180
+default_md              = sha256
+preserve                = no
+email_in_dn             = yes
+policy                  = policy
+unique_subject          = no
+
+#
+# Distinguished Name Policy for CAs
+[ policy ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = supplied
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+#
+# Root CA Request Options
+[ req ]
+default_bits            = 4096
+default_keyfile         = private/root-ca.key.pem
+encrypt_key             = yes
+default_md              = sha256
+string_mask             = utf8only
+utf8                    = yes
+prompt                  = no
+req_extensions          = root-ca_req_ext
+distinguished_name      = distinguished_name
+subjectAltName          = @subject_alt_name
+
+#
+# Root CA Request Extensions
+[ root-ca_req_ext ]
+subjectKeyIdentifier    = hash
+subjectAltName          = @subject_alt_name
+
+#
+# Distinguished Name (DN)
+[ distinguished_name ]
+organizationName        = {{ domaine }}
+commonName              = {{ compki_root }}
+
+#
+# Root CA Certificate Extensions
+[ root-ca_ext ]
+basicConstraints        = critical, CA:true
+keyUsage                = critical, keyCertSign, cRLSign
+nameConstraints         = critical, @name_constraints
+subjectKeyIdentifier    = hash
+subjectAltName          = @subject_alt_name
+authorityKeyIdentifier  = keyid:always
+issuerAltName           = issuer:copy
+authorityInfoAccess     = @auth_info_access
+crlDistributionPoints   = crl_dist
+
+#
+# Intermediate CA Certificate Extensions
+[ intermed-ca_ext ]
+basicConstraints        = critical, CA:true, pathlen:0
+keyUsage                = critical, keyCertSign, cRLSign
+subjectKeyIdentifier    = hash
+subjectAltName          = @subject_alt_name
+authorityKeyIdentifier  = keyid:always
+issuerAltName           = issuer:copy
+authorityInfoAccess     = @auth_info_access
+crlDistributionPoints   = crl_dist
+
+#
+# CRL Certificate Extensions
+[ crl_ext ]
+authorityKeyIdentifier  = keyid:always
+issuerAltName           = issuer:copy
+
+#
+# Certificate Authorities Alternative Names
+[ subject_alt_name ]
+URI                     = http://ca.{{ domaine }}/
+email                   = certmaster@{{ domaine }}
+
+#
+# Name Constraints
+[ name_constraints ]
+permitted;DNS.1         = {{ domaine }}
+permitted;DNS.2         = lan
+
+
+#
+# Certificate download addresses for the root CA
+[ auth_info_access ]
+caIssuers;URI           = http://ca.{{ domaine }}/certs/{{ domaine }}_Root_Certification_Authority.cert.pem
+
+#
+# CRL Download address for the root CA
+[ crl_dist ]
+fullname                = URI:http://{{ domaine }}.net/crl/{{ domaine }}_Root_Certification_Authority.crl

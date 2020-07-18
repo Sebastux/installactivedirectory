@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : scanwapt.sh
+# Description      : Script d'affichage d'informations matériel pour serveur.
+# Auteur           : MELONI Sébastien
+# Date             : 21/05/2020
+# Modification     : 21/05/2020
+# Version          : 1.00
+# Utilisation      : ./scanwapt.sh
+# Notes            : Ce script est installé par ansible et permet de lancer
+#                    un scan anti virus programmé.
+# Version de bash  : 4.2.46
+#==============================================================================
+
+# Scan du répertoire contenant les packages wapt.
+clamscan -i -r /var/www/html/wapt --bell --bell --remove  \
+         --scan-archive --log=/var/log/scanwapt-$(date +%F).log

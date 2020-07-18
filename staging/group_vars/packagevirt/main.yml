@@ -1,0 +1,7 @@
+---
+# Gestion du nom d'hote de ma machine.
+hostname: ironvirt
+commentaire: "Chez midas pour faire réviser son armure."
+
+# Branche utilisée pour le dépot de mise à jpur de la machine.
+branche: ironwapt

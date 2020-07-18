@@ -1,0 +1,53 @@
+# Installation et configuration d'un serveur mariadb
+---
+- name: Installation - mise à jour des packages pip.
+  pip:
+    executable: pip2
+    name: "{{ liste_pip }}"
+    state: latest
+
+- name: Ouverture de ports du pare feu.
+  firewalld:
+    service: "{{ item }}"
+    permanent: yes
+    immediate: yes
+    state: enabled
+  with_items:
+    - http
+    - https
+    - mysql
+
+- name: Démarrage du service MariaDB.
+  systemd:
+    name: mysql
+    state: started
+    enabled: yes
+
+- name: Création du fichier contenant le mot de passe root.
+  template:
+    src: templates/my.cnf.j2
+    dest: /root/.my.cnf
+    owner: root
+    group: root
+    backup: no
+    mode: 0600
+
+- name: Création des scripts de config de MariaDB.
+  template:
+    src: "templates/{{ item.source }}"
+    dest: "{{ rep_travail }}/{{ item.destination }}"
+    owner: root
+    group: root
+    backup: no
+    mode: 0700
+  with_items:
+    - {source: 'secureinst.j2', destination: 'secureinst.sh' }
+    - {source: 'createbase.j2', destination: 'createbase.sh' }
+
+- name: Exécution des scripts de config de MariaDB.
+  shell: "{{ rep_travail }}/{{ item }}"
+  args:
+    executable: /bin/bash
+  with_items:
+    - secureinst.sh
+    - createbase.sh

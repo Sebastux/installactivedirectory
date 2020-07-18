@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+
+# Création du fichier pid
+PidFile /var/run/apache.pid
+
+# Ajout de directive afin d'empecher apache de loguer les connexions de monit
+SetEnvIf        Request_URI "^\/monit\/token$" dontlog
+CustomLog       logs/access.log common env=!dontlog

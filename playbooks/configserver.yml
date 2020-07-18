@@ -1,0 +1,8 @@
+---
+- name: Personalisation du serveur de l'assoce.
+  hosts: activevirt
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - configserver
+    

@@ -1,0 +1,14 @@
+---
+liste_install: [ 'samba' , 'samba-winbind', 'samba-winbind-clients', 'krb5-workstation',
+                 'ldb-tools', 'bind', 'bind-utils', 'samba-client', 'python36-crypto',
+                 'bind', 'samba-dc-bind-dlz', 'bind-utils', 'chrony' ]
+
+pip_install: [ 'cryptography', 'dnspython', 'Markdown' ]
+
+version_samba: 4.12
+
+# Configuration AD samba
+function_level: "2008_R2"
+base_schema: 2012_R2
+
+whith_internaldns: true

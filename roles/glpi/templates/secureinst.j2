@@ -1,0 +1,41 @@
+# {{ ansible_managed }}
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : secureinst.sh
+# Description      : Script de configuration de MariaDB.
+# Auteur           : MELONI Sébastien
+# Date             : 06/06/2020
+# Modification     : 06/06/2020
+# Version          : 1.00
+# Utilisation      : ./secureinst.sh
+# Notes            : Ce script est destiné à être lancé par ansible pour
+#                    éxécuter le script de sécurisation de MariaDB.
+#                    Il a été créé à partir de cette page : https://gist.github.com/Mins/4602864
+# Version de bash  : 4.2.46
+#==============================================================================
+# Création d'une variable contenant le mot de passe root de la db.
+MYSQL_ROOT_PASSWORD={{ mdp_root }}
+
+SECURE_MYSQL=$(expect -c "
+set timeout 10
+spawn mysql_secure_installation
+expect \"Enter current password for root (enter for none):\"
+send \"$MYSQL_ROOT_PASSWORD\r\"
+expect \"Switch to unix_socket authentication\"
+send \"n\r\"
+expect \"Change the root password?\"
+send \"n\r\"
+expect \"Remove anonymous users?\"
+send \"y\r\"
+expect \"Disallow root login remotely?\"
+send \"y\r\"
+expect \"Remove test database and access to it?\"
+send \"y\r\"
+expect \"Reload privilege tables now?\"
+send \"y\r\"
+expect eof
+")
+
+echo "$SECURE_MYSQL"

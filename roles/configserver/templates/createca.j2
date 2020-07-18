@@ -1,0 +1,87 @@
+# {{ ansible_managed }}
+
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
+#==============================================================================
+# Titre            : createca.sh
+# Description      : Script permettant la création de la CA.
+# Auteur           : MELONI Sébastien
+# Date             : 08/04/2020
+# Modification     : 11/04/2020
+# Version          : 1.00
+# Utilisation      : ./createca.sh
+# Notes            : Ce script est installé par ansible et permet l'initialisation
+#                    et la création de la pki.
+# Version de bash  : 4.2.46
+#==============================================================================
+
+clear
+
+# Déplacement dans le répertoire de la PKI root.
+cd {{ root_pki }}
+
+# Création et protection de la clé privée et de la CSR.
+echo "***** Création de la clé. *****"
+openssl req -new -out root-ca.req.pem -config root-ca.cnf -passout pass:"{{ pass_ca }}"
+
+echo "***** Protection de la clé. *****"
+chmod 400 private/root-ca.key.pem
+
+# Création de la CSR.
+echo "***** Création de la CSR. *****"
+openssl req -new -key private/root-ca.key.pem -out root-ca.req.pem -config root-ca.cnf -passin pass:"{{ pass_ca }}"
+# openssl req -verify -in root-ca.req.pem -noout -text -reqopt no_version,no_pubkey,no_sigdump -nameopt multiline
+
+# Création d'un certificat root auto signé
+echo "***** Génération d'un nouveau numéro de série aléatoire. *****"
+openssl rand -hex 16 > root-ca.serial
+
+echo "***** Création du certificat. *****"
+openssl ca -selfsign -in root-ca.req.pem -out root-ca.cert.pem -extensions root-ca_ext -startdate `date +%y%m%d000000Z -u -d -1day` \
+           -enddate `date +%y%m%d000000Z -u -d +10years+1day` -config root-ca.cnf  -passin pass:"{{ pass_ca }}" \
+           -subj "/C={{code_pays }}/ST={{ nom_pays }}/L={{ nom_ville }}/O={{ nom_entreprise }} CN={{ domaine }} /emailAddress={{ adresse_mail }}" -batch
+
+# Debug
+openssl x509 -in ./root-ca.cert.pem -noout -text -certopt no_version,no_pubkey,no_sigdump -nameopt multiline
+openssl verify -verbose -CAfile root-ca.cert.pem root-ca.cert.pem
+
+# Déplacement dans le répertoire de la PKI intermédiaire.
+echo "***** Création de la CA intermédiaire. *****"
+cd {{ intermed_pki }}
+
+echo "***** Création de la csr. *****"
+openssl req -new -out intermed-ca.req.pem -config intermed-ca.cnf -passout pass:"{{ pass_ca }}" \
+            -subj "/C={{code_pays }}/ST={{ nom_pays }}/L={{ nom_ville }}/O={{ nom_entreprise }} CN={{ domaine }} /emailAddress={{ adresse_mail }}"
+
+echo "***** Protection de la clé. *****"
+chmod 400 private/intermed-ca.key
+
+echo "***** Création du certificat. *****"
+openssl req -new -key private/intermed-ca.key -out intermed-ca.req.pem -passout pass:"{{ pass_ca }}" -passin pass:"{{ pass_ca }}" \
+            -subj "/C={{code_pays }}/ST={{ nom_pays }}/L={{ nom_ville }}/O={{ nom_entreprise }} CN={{ domaine }} /emailAddress={{ adresse_mail }}"
+
+
+
+# openssl req  -verify -in intermed-ca.req.pem -noout -text -reqopt no_version,no_pubkey,no_sigdump -nameopt multiline
+
+echo "***** Copie de la CSR intermédiaire pour signature par root. *****"
+cp intermed-ca.req.pem {{ root_pki }}/certreqs/
+
+echo "***** Déplacement dans la pki root. *****"
+cd {{ root_pki }}
+
+echo "***** Génération d'un nouveau numéro de série aléatoire. *****"
+openssl rand -hex 16 > root-ca.serial
+
+echo "***** Signature de la csr par root. *****"
+openssl ca -in certreqs/intermed-ca.req.pem -out certs/intermed-ca.cert.pem -extensions intermed-ca_ext \
+           -startdate `date +%y%m%d000000Z -u -d -1day` -enddate `date +%y%m%d000000Z -u -d +5years+1day` \
+           -config root-ca.cnf -passin pass:"{{ pass_ca }}" -batch
+
+echo "***** Sauvegarde du certifcat signé et de la CSR. *****"
+
+cp certs/intermed-ca.cert.pem {{ rep_certs }}
+cp {{ intermed_pki }}/intermed-ca.req.pem {{ rep_certs }}
+cp {{ intermed_pki }}/private/intermed-ca.key {{ rep_certs }}
+chmod 644 {{ rep_certs }}/*
