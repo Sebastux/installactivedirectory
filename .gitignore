@@ -13,7 +13,7 @@ install_samba.sh
 install_glpi.sh
 
 # Ignorer le fichier contenant les mots de passe.
-#passwd.txt
+passwd.txt
 
 # Ignorer les fichiers inventaire
 production/inventory
